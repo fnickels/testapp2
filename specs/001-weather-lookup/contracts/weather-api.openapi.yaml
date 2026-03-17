@@ -1,0 +1,167 @@
+openapi: 3.0.3
+info:
+  title: Weather Lookup API
+  version: 1.0.0
+  description: API contract for current weather retrieval and service health.
+servers:
+  - url: https://api.example.com
+paths:
+  /api/weather/current:
+    get:
+      summary: Get current weather for a location
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: City name, postal code, or lat,long coordinates.
+        - in: query
+          name: lat
+          required: false
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+        - in: query
+          name: lon
+          required: false
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+        - in: query
+          name: units
+          required: false
+          schema:
+            type: string
+            enum: [metric, imperial, locale-default]
+            default: locale-default
+      responses:
+        '200':
+          description: Current weather payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentWeatherResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+              example:
+                code: RATE_LIMITED
+                message: Too many searches, try again in 1 minute
+                retryAfterSeconds: 60
+        '503':
+          description: Weather provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/health:
+    get:
+      summary: Service health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, timestamp]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+components:
+  schemas:
+    CurrentWeatherResponse:
+      type: object
+      required:
+        - location
+        - weather
+      properties:
+        location:
+          type: object
+          required: [name, latitude, longitude, timezone]
+          properties:
+            name:
+              type: string
+            latitude:
+              type: number
+            longitude:
+              type: number
+            countryCode:
+              type: string
+            timezone:
+              type: string
+        weather:
+          type: object
+          required:
+            - observedAt
+            - units
+            - temperature
+            - feelsLike
+            - humidityPercent
+            - windSpeed
+            - uvIndex
+            - conditionCode
+            - conditionLabel
+          properties:
+            observedAt:
+              type: string
+              format: date-time
+            units:
+              type: string
+              enum: [metric, imperial]
+            temperature:
+              type: number
+            feelsLike:
+              type: number
+            humidityPercent:
+              type: integer
+              minimum: 0
+              maximum: 100
+            windSpeed:
+              type: number
+            uvIndex:
+              type: number
+              minimum: 0
+            conditionCode:
+              type: string
+            conditionLabel:
+              type: string
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    RateLimitErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          required: [retryAfterSeconds]
+          properties:
+            retryAfterSeconds:
+              type: integer
+              minimum: 1
